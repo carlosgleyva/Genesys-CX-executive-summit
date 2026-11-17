@@ -191,7 +191,7 @@
             method: 'POST',
             mode: 'no-cors', // CRÍTICO: Esto evita que Safari/Chrome bloqueen el envío a Google
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Type': 'text/plain;charset=utf-8',
             },
             body: JSON.stringify({
               email: emailInput,
