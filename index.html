@@ -273,7 +273,7 @@
           <main className="flex-1 overflow-y-auto pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
             {activeTab === 'home' && <HomeView userEmail={userEmail} isGuestSession={isGuestSession} selectedSummit={selectedSummit} onLogout={onLogout} />}
             {activeTab === 'agenda' && <AgendaView selectedSummit={selectedSummit} />}
-            {activeTab === 'partners' && <PartnersView />}
+            {activeTab === 'partners' && <PartnersView selectedSummit={selectedSummit} />}
             {activeTab === 'vote' && <VoteView />}
             {activeTab === 'chat' && <ChatView userEmail={userEmail} isGuestSession={isGuestSession} />}
           </main>
@@ -440,10 +440,39 @@
     }
 
     // MARK: - Partners View
-    function PartnersView() {
+    function PartnersView({ selectedSummit }) {
+      const info = Object.values(SummitLocation).find(s => s.id === selectedSummit);
+      const isRD = info?.countryName === "República Dominicana";
       const openLink = (url) => window.open(url, '_blank');
+
+      if (isRD) {
+        return (
+          <div className="p-4 pb-12 animate-in fade-in font-sans">
+            <h2 className="text-[20px] font-extrabold text-[#011A23] mt-4 mb-3 tracking-tight">Diamante</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <PartnerCard bg="white" colSpan={2} img="https://www.xkale.com/assets/img/P_V@3x.png" onClick={() => openLink('https://www.xkale.com/')} />
+            </div>
+
+            <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Oro</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <PartnerCard bg="white" colSpan={2} img="https://ivoxweb.s3.amazonaws.com/logoIvox.png" onClick={() => openLink('https://www.intelvox.com/?_sm_nck=1')} />
+            </div>
+
+            <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Plata</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <PartnerCard bg="white" colSpan={2} img="https://esmtcx.com/wp-content/uploads/2026/01/logo-esmt-white.svg" opacityLogo onClick={() => openLink('https://esmtcx.com/')} />
+            </div>
+
+            <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Especiales</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <PartnerCard bg="white" colSpan={2} img="https://interaxa.com/wp-content/uploads/2025/07/logo-grande.png" opacityLogo onClick={() => openLink('https://interaxa.com/es/home-es/')} />
+            </div>
+          </div>
+        );
+      }
+
       return (
-        <div className="p-4 pb-12 animate-in">
+        <div className="p-4 pb-12 animate-in fade-in font-sans">
           <h2 className="text-[20px] font-extrabold text-[#011A23] mt-4 mb-3 tracking-tight">Diamante</h2>
           <div className="grid grid-cols-2 gap-4">
             <PartnerCard bg="white" colSpan={1} img="https://assets.aboutamazon.com/ff/9f/c88d0578474381e7ee1b6d337d23/aws-logo-rgb.png" onClick={() => openLink('https://www.genesys.com/es-mx/partners/global-strategic-alliances/aws')} />
