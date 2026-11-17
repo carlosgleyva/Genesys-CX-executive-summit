@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="CX Summit">
-  <link rel="apple-touch-icon" href="https://www.genesys.com/favicon.ico">
+  <link rel="apple-touch-icon" href="https://i.postimg.cc/YCDqmpWZ/generated-image-4.jpg">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -38,6 +38,11 @@
       padding: 0;
     }
     .pb-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    
+    /* Ajuste para que la burbuja de AVA no tape el menú inferior */
+    iframe#genesys-messenger-frame, div#genesys-mxg-container, .genesys-mxg-frame { 
+      bottom: 85px !important; 
+    }
     
     /* Animaciones suaves */
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -99,7 +104,7 @@
 
       useEffect(() => {
         const head = document.head;
-        const iconUrl = "https://www.genesys.com/favicon.ico";
+        const iconUrl = "https://i.postimg.cc/YCDqmpWZ/generated-image-4.jpg";
         const manifest = {
           name: "CX Executive Summit", short_name: "CX Summit", start_url: ".", display: "standalone",
           background_color: "#FAFAFA", theme_color: "#FF4F1F",
@@ -226,17 +231,30 @@
     function MainTabView({ userEmail, isGuestSession, selectedSummit, onLogout }) {
       const [activeTab, setActiveTab] = useState('home');
       const [isStandalone, setIsStandalone] = useState(true);
+      const [os, setOs] = useState('unknown');
 
       useEffect(() => {
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
         setIsStandalone(isPWA);
+        
+        // Detectar sistema operativo para dar instrucciones correctas
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        if (/iphone|ipad|ipod/.test(userAgent)) setOs('ios');
+        else if (/android/.test(userAgent)) setOs('android');
       }, []);
 
       return (
         <div className="flex flex-col h-[100dvh] overflow-hidden" style={{ backgroundColor: GenesysColors.background }}>
-          {!isStandalone && (
+          {!isStandalone && os !== 'unknown' && (
             <div className="bg-[#FF4F1F] text-white p-3 text-xs flex items-center justify-between z-50 shadow-md">
-              <div className="flex-1 font-medium"><strong>Instala la app:</strong> Toca Compartir <span className="inline-block border border-white/40 rounded px-1">⎋</span> y luego "Agregar a Inicio" en iOS.</div>
+              <div className="flex-1 font-medium">
+                <strong>Instala la app:</strong>{' '}
+                {os === 'ios' ? (
+                  <>Toca Compartir <span className="inline-block border border-white/40 rounded px-1 mb-1">⎋</span> y luego "Agregar a Inicio".</>
+                ) : (
+                  <>Toca el menú <span className="inline-block border border-white/40 rounded px-1 mb-1">⋮</span> y luego "Instalar aplicación".</>
+                )}
+              </div>
               <button onClick={() => setIsStandalone(true)} className="ml-2 font-black text-lg">&times;</button>
             </div>
           )}
@@ -324,13 +342,12 @@
     // MARK: - Agenda View
     function AgendaView({ selectedSummit }) {
       const info = Object.values(SummitLocation).find(s => s.id === selectedSummit);
-      const isRD = info?.countryName === "República Dominicana";
       const [agendaHtml, setAgendaHtml] = useState(null);
-      const [loading, setLoading] = useState(!isRD);
+      const [loading, setLoading] = useState(true);
       const [error, setError] = useState(false);
 
       useEffect(() => {
-        if (isRD || !info) return;
+        if (!info) return;
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(info.sheetCSVUrl)}`;
         
         fetch(proxyUrl).then(res => res.json()).then(data => {
@@ -368,11 +385,10 @@
             setAgendaHtml(html || '<div style="text-align:center; color:gray; margin-top:40px;">Agenda no disponible aún.</div>');
             setLoading(false);
           }).catch(() => { setError(true); setLoading(false); });
-      }, [info, isRD]);
+      }, [info]);
 
       return (
         <div className="flex flex-col h-full animate-in">
-          {isRD && <div className="bg-[#FF4F1F] text-white text-xs font-bold text-center p-3">⚠️ Agenda en construcción. Estará disponible pronto.</div>}
           <div className="p-4 flex-1">
             {loading && <div className="h-full flex flex-col items-center justify-center gap-4"><div className="w-8 h-8 border-4 border-gray-200 border-t-[#FF4F1F] rounded-full animate-spin" /><p className="text-xs text-gray-500">Sincronizando agenda...</p></div>}
             {error && <div className="h-full flex flex-col items-center justify-center gap-2"><WifiOff size={40} className="text-gray-400 mb-2" /><h3 className="font-bold text-lg">Error de conexión</h3><button onClick={() => { setLoading(true); setError(false); }} className="bg-[#FF4F1F] text-white px-6 py-2 rounded-lg font-bold">Reintentar</button></div>}
