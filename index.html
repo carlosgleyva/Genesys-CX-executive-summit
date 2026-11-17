@@ -1,0 +1,717 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Home, 
+  Clock, 
+  Star, 
+  CheckSquare, 
+  Sparkles, 
+  Globe2, 
+  ChevronRight, 
+  ArrowLeft, 
+  Trash2, 
+  LogOut, 
+  MapPin, 
+  CheckCircle2, 
+  WifiOff, 
+  Lock
+} from 'lucide-react';
+
+// MARK: - App Colors & Design System (From Swift)
+const GenesysColors = {
+  orange: '#FF4F1F',
+  red: '#C00F0F',
+  darkGray: '#121212',
+  background: '#FAFAFA',
+  lightGray: '#F0F0F0',
+  cardShadow: 'rgba(0, 0, 0, 0.08)'
+};
+
+const AppConfig = {
+  version: "5.3 (Web PWA)"
+};
+
+// MARK: - Models (From Swift)
+const SummitLocation = {
+  bogota: {
+    id: "Bogotá",
+    countryName: "Colombia",
+    fullName: "Bogotá, Colombia",
+    dateString: "10 de noviembre, 2026",
+    hotelName: "Salvio 93",
+    hotelAddress: "Calle 93a, Bogotá, Colombia",
+    lat: "4.6767", lng: "-74.0485",
+    registrationImageURL: "https://www.genesys.com/media/bogota-pic.webp",
+    homeHeroImageURL: "https://www.genesys.com/media/hero_img-Knowledge_Fabric.webp",
+    sheetCSVUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQIl41g-GN8VdxWQLXGiM4jnvkRQrQyoplcjN0B9EaM1PxNGYl4zL7PjFaSZshmlywCX40s2FHhEWrJ/pub?output=csv"
+  },
+  dominicana: {
+    id: "República Dominicana",
+    countryName: "República Dominicana",
+    fullName: "Santo Domingo, RD",
+    dateString: "18 de noviembre, 2026",
+    hotelName: "JW Marriott Hotel",
+    hotelAddress: "Av. Winston Churchill, Santo Domingo",
+    lat: "18.4727", lng: "-69.9416",
+    registrationImageURL: "https://cache.marriott.com/content/dam/marriott-renditions/SDQJW/sdqjw-exterior-0083-hor-wide.jpg",
+    homeHeroImageURL: "https://www.genesys.com/media/hero_composition-scaled.webp",
+    sheetCSVUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTd_tHO4fFKC0_ujACRZvagCgHnBnjnGCPp6OdN2KW7PnG2_3lGHjZr6UClvEdRG1UNuXubx3VjpQOw/pub?output=csv"
+  }
+};
+
+// MARK: - Root View (App State Manager)
+export default function CXSummitPWA() {
+  const [isSplashActive, setIsSplashActive] = useState(true);
+  
+  // AppStorage Equivalents
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '');
+  const [isGuestSession, setIsGuestSession] = useState(localStorage.getItem('isGuestSession') === 'true');
+  const [selectedSummit, setSelectedSummit] = useState(localStorage.getItem('selectedSummit') || '');
+
+  // PWA & Favicon Injection
+  useEffect(() => {
+    // Inyectar etiquetas PWA y Favicon dinámicamente
+    const head = document.head;
+    
+    // Icono Favicon (Cambia la URL por la de tu logo)
+    const iconUrl = "https://www.genesys.com/favicon.ico";
+    
+    const tags = [
+      { tag: 'meta', name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { tag: 'meta', name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+      { tag: 'meta', name: 'apple-mobile-web-app-title', content: 'CX Summit' },
+      { tag: 'link', rel: 'apple-touch-icon', href: iconUrl },
+      { tag: 'link', rel: 'icon', type: 'image/x-icon', href: iconUrl }
+    ];
+
+    tags.forEach(t => {
+      let element = document.createElement(t.tag);
+      Object.keys(t).forEach(key => { if(key !== 'tag') element.setAttribute(key, t[key]); });
+      head.appendChild(element);
+    });
+
+    // Manifest dinámico para Android (Add to Home Screen)
+    const manifest = {
+      name: "CX Executive Summit",
+      short_name: "CX Summit",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#FAFAFA",
+      theme_color: "#FF4F1F",
+      icons: [{ src: iconUrl, sizes: "192x192", type: "image/png" }, { src: iconUrl, sizes: "512x512", type: "image/png" }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = manifestUrl;
+    head.appendChild(manifestLink);
+  }, []);
+
+  // Sync to LocalStorage
+  useEffect(() => { localStorage.setItem('userEmail', userEmail); }, [userEmail]);
+  useEffect(() => { localStorage.setItem('isGuestSession', isGuestSession); }, [isGuestSession]);
+  useEffect(() => { localStorage.setItem('selectedSummit', selectedSummit); }, [selectedSummit]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsSplashActive(false);
+    }, 5000); // 5 seconds like Swift deadline
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isSplashActive) return <SplashScreenView />;
+
+  if (!selectedSummit) {
+    return <EventSelectionView onSelect={setSelectedSummit} />;
+  }
+
+  if (!userEmail && !isGuestSession) {
+    return (
+      <RegistrationView 
+        selectedSummit={selectedSummit}
+        onBack={() => setSelectedSummit('')}
+        onRegister={(email) => { setUserEmail(email); setIsGuestSession(false); }}
+        onGuest={() => setIsGuestSession(true)}
+      />
+    );
+  }
+
+  return (
+    <MainTabView 
+      userEmail={userEmail}
+      isGuestSession={isGuestSession}
+      selectedSummit={selectedSummit}
+      onLogout={() => { setUserEmail(''); setIsGuestSession(false); }}
+    />
+  );
+}
+
+// MARK: - Splash Screen View (Mimicking Native AVPlayer)
+function SplashScreenView() {
+  return (
+    <div className="fixed inset-0 bg-black z-50 flex flex-col justify-end items-center pb-12 animate-in fade-in duration-1000">
+      {/* HTML5 Video mimicking AVPlayer loop & resizeAspectFill */}
+      <video 
+        autoPlay 
+        muted 
+        loop 
+        playsInline 
+        className="absolute inset-0 w-full h-full object-cover opacity-80"
+        src="https://yourimageshare.com/ib/cfhvnuWFnw.mov"
+      />
+      <div className="relative z-10 flex flex-col items-center">
+        <h1 className="text-white text-xl font-bold drop-shadow-xl tracking-wide">CX Executive Summit 2026</h1>
+      </div>
+    </div>
+  );
+}
+
+// MARK: - Event Selection View
+function EventSelectionView({ onSelect }) {
+  return (
+    <div className="min-h-[100dvh] flex flex-col p-8 pb-12 animate-in slide-in-from-bottom-8 duration-700" style={{ backgroundColor: GenesysColors.background }}>
+      <div className="flex-1 flex flex-col justify-center items-center gap-4 mt-12">
+        <Globe2 size={60} color={GenesysColors.orange} />
+        <h1 className="text-[28px] font-black text-center" style={{ color: GenesysColors.darkGray }}>Selecciona tu Evento</h1>
+        <p className="text-gray-500 text-center mb-8">¿A cuál CX Executive Summit vas a asistir?</p>
+
+        <div className="w-full flex flex-col gap-5 max-w-[350px]">
+          {Object.values(SummitLocation).map(loc => (
+            <button 
+              key={loc.id}
+              onClick={() => onSelect(loc.id)}
+              className="w-full flex items-center justify-between p-5 rounded-2xl shadow-lg transition-transform active:scale-95"
+              style={{ backgroundColor: GenesysColors.orange, boxShadow: `0 10px 20px ${GenesysColors.orange}40` }}
+            >
+              <div className="flex flex-col items-start gap-1">
+                <span className="text-white font-bold text-lg">{loc.fullName}</span>
+                <span className="text-white/80 text-xs">{loc.dateString}</span>
+              </div>
+              <ChevronRight size={24} color="white" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MARK: - Registration View
+function RegistrationView({ selectedSummit, onBack, onRegister, onGuest }) {
+  const [emailInput, setEmailInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const summitInfo = Object.values(SummitLocation).find(s => s.id === selectedSummit);
+  const isEmailValid = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,64}$/i.test(emailInput);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!isEmailValid) return;
+    setIsSubmitting(true);
+    
+    // Simulating Google Sheets Network Call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      onRegister(emailInput);
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-[100dvh] flex flex-col relative" style={{ backgroundColor: GenesysColors.background }}>
+      {/* Top Image Area */}
+      <div className="relative h-[60vh] w-full shrink-0">
+        <img src={summitInfo?.registrationImageURL} alt="Summit" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#FAFAFA] to-transparent" />
+      </div>
+
+      {/* Bottom Sheet Area */}
+      <div className="absolute top-[42vh] bottom-0 left-0 right-0 z-10 flex flex-col">
+        <div className="flex-1 bg-[#FAFAFA] rounded-t-[35px] shadow-[0_-10px_25px_rgba(0,0,0,0.08)] px-8 pt-6 overflow-y-auto pb-12">
+          
+          <button onClick={onBack} className="flex items-center gap-2 text-gray-500 font-bold text-xs mb-6">
+            <ArrowLeft size={16} /> Cambiar sede
+          </button>
+
+          <h2 className="text-[28px] font-black leading-tight" style={{ color: GenesysColors.darkGray }}>CX Executive Summit</h2>
+          <h3 className="text-[22px] font-bold mb-6" style={{ color: GenesysColors.orange }}>{selectedSummit}</h3>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-[450px] mx-auto">
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 tracking-wider mb-2 block">CORREO PROFESIONAL</label>
+              <input 
+                type="email"
+                placeholder="nombre@empresa.com"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                disabled={isSubmitting}
+                className="w-full p-4 bg-white rounded-xl border focus:outline-none transition-colors text-black"
+                style={{ borderColor: emailInput === '' ? '#e5e7eb' : (isEmailValid ? GenesysColors.orange : '#fca5a5') }}
+              />
+            </div>
+
+            <button 
+              type="submit"
+              disabled={!isEmailValid || isSubmitting}
+              className="w-full p-4 rounded-xl flex items-center justify-center gap-2 font-bold text-white transition-colors"
+              style={{ backgroundColor: (isEmailValid && !isSubmitting) ? GenesysColors.orange : 'rgba(156, 163, 175, 0.4)' }}
+            >
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>ACCEDER AL EVENTO <ChevronRight size={18} /></>
+              )}
+            </button>
+
+            <button type="button" onClick={onGuest} disabled={isSubmitting} className="text-sm font-bold pb-4" style={{ color: GenesysColors.orange }}>
+              Explorar como invitado
+            </button>
+          </form>
+
+          <div className="mt-8 text-center flex flex-col gap-4 mb-8">
+            <p className="text-xs text-gray-500 max-w-[350px] mx-auto">Este identificador se usará localmente para personalizar tu interacción con AVA.</p>
+            <p className="text-[10px] font-mono font-bold text-gray-400 opacity-50">Versión {AppConfig.version}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MARK: - Main Tab Navigation
+function MainTabView({ userEmail, isGuestSession, selectedSummit, onLogout }) {
+  const [activeTab, setActiveTab] = useState('home');
+  const [isStandalone, setIsStandalone] = useState(true);
+
+  // Detectar si ya está instalada como PWA
+  useEffect(() => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    setIsStandalone(isPWA);
+  }, []);
+
+  return (
+    <div className="flex flex-col h-[100dvh] overflow-hidden" style={{ backgroundColor: GenesysColors.background }}>
+      
+      {!isStandalone && (
+        <div className="bg-[#FF4F1F] text-white p-3 text-xs flex items-center justify-between z-50 shadow-md">
+          <div className="flex-1 font-medium">
+            <strong>Instala la app:</strong> Toca Compartir <span className="inline-block border border-white/40 rounded px-1">⎋</span> y luego "Agregar a Inicio" en iOS.
+          </div>
+          <button onClick={() => setIsStandalone(true)} className="ml-2 font-black text-lg">&times;</button>
+        </div>
+      )}
+
+      <main className="flex-1 overflow-y-auto pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {activeTab === 'home' && <HomeView userEmail={userEmail} isGuestSession={isGuestSession} selectedSummit={selectedSummit} onLogout={onLogout} />}
+        {activeTab === 'agenda' && <AgendaView selectedSummit={selectedSummit} />}
+        {activeTab === 'partners' && <PartnersView />}
+        {activeTab === 'vote' && <VoteView />}
+        {activeTab === 'chat' && <ChatView userEmail={userEmail} isGuestSession={isGuestSession} />}
+      </main>
+
+      <nav className="bg-white border-t border-gray-200 absolute bottom-0 w-full flex justify-around items-center pt-2 pb-safe-bottom z-50">
+        <NavButton icon={<Home />} label="Inicio" isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+        <NavButton icon={<Clock />} label="Agenda" isActive={activeTab === 'agenda'} onClick={() => setActiveTab('agenda')} />
+        <NavButton icon={<Star />} label="Partners" isActive={activeTab === 'partners'} onClick={() => setActiveTab('partners')} />
+        <NavButton icon={<CheckSquare />} label="Votar" isActive={activeTab === 'vote'} onClick={() => setActiveTab('vote')} />
+        <NavButton icon={<Sparkles />} label="Chat AVA" isActive={activeTab === 'chat'} onClick={() => setActiveTab('chat')} />
+      </nav>
+    </div>
+  );
+}
+
+function NavButton({ icon, label, isActive, onClick }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center justify-center w-full pb-2 transition-colors ${isActive ? 'text-[#FF4F1F]' : 'text-gray-400'}`}>
+      <div className={`mb-1 transition-transform ${isActive ? 'scale-110' : 'scale-100'}`}>
+        {React.cloneElement(icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
+      </div>
+      <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
+    </button>
+  );
+}
+
+// MARK: - Home View
+function HomeView({ userEmail, isGuestSession, selectedSummit, onLogout }) {
+  const info = Object.values(SummitLocation).find(s => s.id === selectedSummit);
+  const isRD = info?.countryName === "República Dominicana";
+
+  const handleOpenMap = () => {
+    if(!info) return;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if(isIOS) {
+      window.open(`http://maps.apple.com/?daddr=${info.lat},${info.lng}`, '_blank');
+    } else {
+      window.open(`https://www.google.com/maps/search/?api=1&query=${info.lat},${info.lng}`, '_blank');
+    }
+  };
+
+  return (
+    <div className="p-4 pb-8 animate-in fade-in">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <p className="text-xs text-gray-500">Bienvenido</p>
+          <p className="text-sm font-bold truncate max-w-[200px]" style={{ color: GenesysColors.darkGray }}>
+            {isGuestSession ? 'Invitado' : userEmail}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {!isGuestSession && (
+            <button onClick={onLogout} className="bg-red-50 p-2 rounded-lg text-red-600"><Trash2 size={16} /></button>
+          )}
+          <button onClick={onLogout} className="flex items-center gap-1 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold">
+            Salir <LogOut size={14} />
+          </button>
+        </div>
+      </div>
+
+      <img src={info?.homeHeroImageURL} alt="Hero" className="w-full h-56 object-cover rounded-2xl shadow-lg mb-8" />
+
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-8">
+        <h2 className="text-2xl font-black mb-3" style={{ color: GenesysColors.darkGray }}>CX Executive Summit {info?.countryName} 2026</h2>
+        
+        <p className="text-gray-500 text-sm leading-relaxed mb-4">
+          {isRD 
+            ? "Descubre cómo la inteligencia artificial y la orquestación de experiencias están redefiniendo la relación entre las empresas y sus clientes. Únete a los líderes que están construyendo el futuro de la experiencia del cliente en República Dominicana."
+            : "En un escenario donde la inteligencia artificial está transformando cada interacción entre marcas y personas, las organizaciones líderes enfrentan un nuevo desafío: diseñar experiencias más inteligentes, fluidas y humanas."
+          }
+        </p>
+        
+        {!isRD && (
+          <p className="text-gray-500 text-sm leading-relaxed mb-4">
+            El <strong>Genesys CX Executive Summit {info?.countryName} 2026</strong> reunirá a referentes de negocio, tecnología y Experiencia de Clientes en un espacio exclusivo pensado para explorar cómo la IA y la Orquestación de Experiencias están redefiniendo la manera en que las empresas escuchan, anticipan y responden a las necesidades de sus clientes.
+          </p>
+        )}
+
+        <p className="text-gray-500 text-sm leading-relaxed mb-4">
+          A través de keynotes, paneles ejecutivos y conversaciones estratégicas con líderes, abordaremos las principales tendencias que están impulsando la transformación del CX:
+        </p>
+
+        <div className="flex flex-col gap-3 my-4 pl-2">
+          {["Inteligencia Artificial aplicada a la Experiencia de Clientes", "Orquestación de experiencias", "Automatización inteligente", "Customer Journeys personalizados", "Employee Experience", "Innovación y eficiencia operacional"].map((item, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: GenesysColors.orange }} />
+              <span className="text-sm text-gray-500">{item}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-sm font-medium leading-relaxed mt-6" style={{ color: GenesysColors.darkGray }}>
+          Más que un evento, el summit será una experiencia diseñada para conectar visión estratégica, innovación y networking de alto nivel entre los principales líderes del mercado.
+        </p>
+      </div>
+
+      <h3 className="font-bold text-lg mb-3 px-1" style={{ color: GenesysColors.darkGray }}>Ubicación del Evento</h3>
+      <button onClick={handleOpenMap} className="w-full flex items-center bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 mb-8 text-left">
+        <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 mr-4" style={{ backgroundColor: `${GenesysColors.orange}1A` }}>
+          <MapPin color={GenesysColors.orange} size={20} />
+        </div>
+        <div className="flex-1">
+          <p className="font-bold text-gray-900">{info?.hotelName}</p>
+          <p className="text-xs text-gray-500">{info?.hotelAddress}</p>
+        </div>
+        <Globe2 className="text-gray-400 shrink-0" size={20} />
+      </button>
+
+      <p className="text-center text-[10px] font-bold text-gray-300">Genesys {selectedSummit} v{AppConfig.version}</p>
+    </div>
+  );
+}
+
+// MARK: - Agenda View
+function AgendaView({ selectedSummit }) {
+  const info = Object.values(SummitLocation).find(s => s.id === selectedSummit);
+  const isRD = info?.countryName === "República Dominicana";
+  
+  const [agendaHtml, setAgendaHtml] = useState(null);
+  const [loading, setLoading] = useState(!isRD);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (isRD || !info) return;
+    
+    // Usamos un Proxy CORS gratuito para evitar bloqueos del navegador hacia Google Sheets
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(info.sheetCSVUrl)}`;
+    
+    fetch(proxyUrl)
+      .then(res => res.text())
+      .then(csv => {
+        // Micro-procesador CSV robusto (maneja comillas y saltos de línea internos)
+        const rows = [];
+        let row = [];
+        let curr = '';
+        let inQuotes = false;
+        for (let i = 0; i < csv.length; i++) {
+          const char = csv[i];
+          if (char === '"') { inQuotes = !inQuotes; }
+          else if (char === ',' && !inQuotes) { row.push(curr); curr = ''; }
+          else if ((char === '\n' || char === '\r') && !inQuotes) {
+            if (curr || row.length > 0) { row.push(curr); rows.push(row); row = []; curr = ''; }
+          }
+          else { curr += char; }
+        }
+        if (curr || row.length > 0) { row.push(curr); rows.push(row); }
+
+        let html = '';
+        
+        rows.forEach((row, i) => {
+           if (i === 0 || row.length < 4) return;
+           let time = row[0]?.trim();
+           if (!time || time.toLowerCase().includes('inicio')) return;
+           
+           let title = row[3]?.split('\n')[0]?.replace(/"/g, '') || '';
+           let desc = row[3]?.split('\n').slice(1).join('<br>')?.replace(/"/g, '') || '';
+           let speaker = row[4]?.replace(/—/g, '')?.trim() || '';
+           let partner = row[5]?.replace(/—/g, '')?.trim() || '';
+
+           html += `
+              <div style="background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 16px;">
+                  <div style="display:flex; justify-content:space-between; color:#FF4F1F; font-weight:bold; font-size:14px;">
+                    <span>${time}</span>
+                    <span>${partner !== '-' ? partner : ''}</span>
+                  </div>
+                  <h3 style="margin:8px 0; font-size:17px; color:#121212; font-family: sans-serif;">${title}</h3>
+                  <p style="font-size:13px; color:gray; font-family: sans-serif;">${desc}</p>
+                  ${speaker && speaker !== '-' ? `<div style="background:#F0F0F0; padding:6px 10px; border-radius:8px; display:inline-block; font-size:11px; font-weight:bold; margin-top:8px; font-family: sans-serif; color:#333;">🎤 ${speaker}</div>` : ''}
+              </div>
+           `;
+        });
+        
+        if(!html) html = '<div style="text-align:center; color:gray; margin-top:40px; font-family:sans-serif;">Agenda no disponible aún.</div>';
+        setAgendaHtml(html);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching agenda:", err);
+        setError(true);
+        setLoading(false);
+      });
+  }, [info, isRD]);
+
+  return (
+    <div className="flex flex-col h-full animate-in fade-in">
+      {isRD && (
+        <div className="bg-[#FF4F1F] text-white text-xs font-bold text-center p-3">
+          ⚠️ Agenda en construcción. Estará disponible pronto.
+        </div>
+      )}
+
+      <div className="p-4 flex-1">
+        {loading && (
+          <div className="h-full flex flex-col items-center justify-center gap-4">
+            <div className="w-8 h-8 border-4 border-gray-200 border-t-[#FF4F1F] rounded-full animate-spin" />
+            <p className="text-xs text-gray-500">Sincronizando agenda...</p>
+          </div>
+        )}
+        
+        {error && (
+          <div className="h-full flex flex-col items-center justify-center gap-2">
+            <WifiOff size={40} className="text-gray-400 mb-2" />
+            <h3 className="font-bold text-lg">Error de conexión</h3>
+            <p className="text-sm text-gray-500 mb-4">No se pudo cargar la agenda.</p>
+            <button onClick={() => { setLoading(true); setError(false); }} className="bg-[#FF4F1F] text-white px-6 py-2 rounded-lg font-bold">
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {agendaHtml && (
+          <div dangerouslySetInnerHTML={{ __html: agendaHtml }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// MARK: - Partners View
+function PartnersView() {
+  const openLink = (url) => window.open(url, '_blank');
+
+  return (
+    <div className="p-4 pb-12 animate-in fade-in font-sans">
+      <h2 className="text-[20px] font-extrabold text-[#011A23] mt-4 mb-3 tracking-tight">Diamante</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <PartnerCard bg="white" colSpan={1} img="https://assets.aboutamazon.com/ff/9f/c88d0578474381e7ee1b6d337d23/aws-logo-rgb.png" onClick={() => openLink('https://www.genesys.com/es-mx/partners/global-strategic-alliances/aws')} />
+        <PartnerCard bg="orange" colSpan={1} img="https://upload.wikimedia.org/wikipedia/commons/c/cd/Accenture.svg" whiteLogo onClick={() => openLink('https://www.genesys.com/partners/global-system-integrators')} />
+        <PartnerCard bg="dark" colSpan={2} img="https://esmtcx.com/wp-content/uploads/2026/01/logo-esmt-white.svg" whiteLogo onClick={() => openLink('https://esmtcx.com/')} />
+      </div>
+
+      <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Oro</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <PartnerCard bg="white" colSpan={1} img="https://crossnet.la/wp-content/uploads/2024/10/logo-crossnet_header.svg" onClick={() => openLink('https://crossnet.la/')} />
+        <PartnerCard bg="white" colSpan={1} img="https://www.xkale.com/assets/img/P_V@3x.png" onClick={() => openLink('https://www.xkale.com/')} />
+      </div>
+
+      <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Plata</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <PartnerCard bg="white" colSpan={2} img="https://www.genesys.com/media/Soutec-01.webp" onClick={() => openLink('https://soutec-group.com/es')} />
+      </div>
+
+      <h2 className="text-[20px] font-extrabold text-[#011A23] mt-8 mb-3 tracking-tight">Especiales</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <PartnerCard bg="dark" colSpan={1} img="https://econtact.cx/assets/img/logo-blanco-v1-.png" whiteLogo onClick={() => openLink('https://econtact.cx/')} />
+        <PartnerCard bg="orange" colSpan={1} img="https://interaxa.com/wp-content/uploads/2025/07/logo-grande.png" whiteLogo onClick={() => openLink('https://interaxa.com/es/home-es/')} />
+        <PartnerCard bg="white" colSpan={2} img="https://www.jupitercx.com/assets/JupiterCX-logo.png" opacityLogo onClick={() => openLink('https://www.jupitercx.com/')} />
+      </div>
+    </div>
+  );
+}
+
+function PartnerCard({ bg, colSpan, img, whiteLogo, opacityLogo, onClick }) {
+  let bgClass = "bg-white border border-gray-200";
+  let arrowClass = "text-gray-400 bg-white border border-gray-200";
+  
+  if (bg === 'orange') {
+    bgClass = "bg-gradient-to-br from-[#FF4F1F] to-[#D4360D] border-none shadow-[0_8px_15px_rgba(255,79,31,0.25)]";
+    arrowClass = "text-white bg-white/10 border border-white/30";
+  } else if (bg === 'dark') {
+    bgClass = "bg-gradient-to-br from-[#1F1F1F] to-[#0A0A0A] border-none shadow-lg";
+    arrowClass = "text-white bg-white/10 border border-white/30";
+  }
+
+  let imgClass = "max-h-[50px] max-w-[80%] object-contain z-10";
+  if (whiteLogo) imgClass += " brightness-0 invert";
+  if (opacityLogo) imgClass += " brightness-0 opacity-80";
+
+  return (
+    <div onClick={onClick} className={`relative flex items-center justify-center h-[120px] rounded-2xl p-6 cursor-pointer active:scale-95 transition-transform ${bgClass} col-span-${colSpan}`}>
+      <img src={img} alt="Partner" className={imgClass} />
+      <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center z-10 ${arrowClass}`}>
+        <ChevronRight size={12} strokeWidth={3} />
+      </div>
+    </div>
+  );
+}
+
+// MARK: - Vote View
+function VoteView() {
+  const options = ["Cobranzas", "Crédito hipotecario", "Extrafinanciamiento", "Servicio al cliente"];
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+
+  if (hasVoted) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center animate-in zoom-in duration-500">
+        <CheckCircle2 size={80} className="text-green-500 mb-5" />
+        <h2 className="text-[28px] font-black" style={{ color: GenesysColors.darkGray }}>¡Voto registrado!</h2>
+        <p className="text-gray-500 text-center mt-2 px-10">Gracias por ayudarnos a construir la experiencia.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-5 flex flex-col h-full animate-in fade-in">
+      <h1 className="text-2xl font-black mt-2" style={{ color: GenesysColors.darkGray }}>Construyamos la experiencia</h1>
+      <p className="text-gray-500 mt-4 leading-relaxed">Hoy ustedes ayudan a construir la experiencia. ¿Qué caso de uso quieren que llevemos a nuestra demo agéntica?</p>
+
+      <div className="flex flex-col gap-4 mt-8 flex-1">
+        {options.map(opt => (
+          <button 
+            key={opt}
+            onClick={() => setSelectedOption(opt)}
+            className={`w-full flex justify-between items-center p-4 rounded-xl shadow-sm transition-colors ${selectedOption === opt ? 'text-white' : 'bg-white text-gray-900'}`}
+            style={{ backgroundColor: selectedOption === opt ? GenesysColors.orange : 'white' }}
+          >
+            <span className="font-bold">{opt}</span>
+            {selectedOption === opt && <CheckCircle2 size={20} color="white" />}
+          </button>
+        ))}
+      </div>
+
+      <button 
+        onClick={() => {
+          setIsSubmitting(true);
+          setTimeout(() => { setIsSubmitting(false); setHasVoted(true); }, 1500);
+        }}
+        disabled={!selectedOption || isSubmitting}
+        className="w-full p-4 rounded-xl flex items-center justify-center font-bold text-white transition-colors mt-8"
+        style={{ backgroundColor: (selectedOption && !isSubmitting) ? GenesysColors.orange : 'rgba(156, 163, 175, 0.4)' }}
+      >
+        {isSubmitting ? (
+          <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> ENVIANDO...</>
+        ) : "ENVIAR VOTO"}
+      </button>
+    </div>
+  );
+}
+
+// MARK: - Chat AVA View (iframe for actual Genesys Widget)
+function ChatView({ userEmail, isGuestSession }) {
+  if (isGuestSession && !userEmail) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-10 text-center animate-in fade-in">
+        <Lock size={60} color={GenesysColors.orange} className="opacity-50 mb-6" />
+        <h2 className="text-xl font-bold mb-2">Chat con AVA requiere registro</h2>
+        <p className="text-gray-500 text-sm mb-8">Registra tu correo profesional para seguimiento.</p>
+        <button className="bg-[#FF4F1F] text-white px-8 py-3 rounded-xl font-bold shadow-md opacity-50 cursor-not-allowed">
+          Requiere iniciar sesión
+        </button>
+      </div>
+    );
+  }
+
+  // Inyectar script de Genesys directamente en el DOM en lugar de usar iFrame
+  useEffect(() => {
+    const setupGenesys = () => {
+      if(document.getElementById('genesys-widget-script')) return; // Evitar duplicados
+      
+      window._genesysJs = 'Genesys';
+      window.Genesys = window.Genesys || function () {
+        (window.Genesys.q = window.Genesys.q || []).push(arguments);
+      };
+      window.Genesys.t = 1 * new Date();
+      window.Genesys.c = {
+        environment: 'prod',
+        deploymentId: '6cdeeef5-339e-4718-9f5b-34fd0322eb4b'
+      };
+
+      const script = document.createElement('script');
+      script.id = 'genesys-widget-script';
+      script.src = 'https://apps.mypurecloud.com/genesys-bootstrap/genesys.min.js';
+      script.async = true;
+      document.head.appendChild(script);
+    };
+
+    setupGenesys();
+
+    // Configurar el correo y forzar apertura cuando el script esté listo
+    const checkInterval = setInterval(() => {
+      if (window.Genesys) {
+        window.Genesys("command", "MessagingService.setExternalId", { externalId: userEmail });
+        window.Genesys("command", "Messenger.open", {}, () => {}, () => {});
+        clearInterval(checkInterval);
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(checkInterval);
+      // Opcional: Cerrar el widget cuando el usuario salga de esta pestaña
+      if (window.Genesys) {
+        window.Genesys("command", "Messenger.close");
+      }
+    };
+  }, [userEmail]);
+
+  return (
+    <div className="flex flex-col h-full animate-in fade-in relative bg-slate-50">
+      <div className="bg-white p-4 shadow-sm flex items-center justify-between z-10 border-b border-gray-100 relative">
+        <div>
+          <h3 className="font-bold text-gray-900 leading-tight">AVA: Soporte Agéntico</h3>
+          <p className="text-[10px] text-gray-500">ID Tracking: {userEmail}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-[10px] font-black tracking-wide">ONLINE</span>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <Sparkles size={60} color={GenesysColors.orange} className="mb-6 opacity-80" />
+        <h2 className="text-2xl font-black text-gray-800 mb-2">¡AVA está lista!</h2>
+        <p className="text-gray-500 text-sm max-w-[250px] mx-auto">
+          El chat se ha abierto en la burbuja de la esquina inferior de tu pantalla.
+        </p>
+      </div>
+    </div>
+  );
+}
