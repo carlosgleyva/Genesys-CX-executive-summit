@@ -97,36 +97,31 @@
     // MARK: - Root View (App State Manager)
     function CXSummitPWA() {
       const [isSplashActive, setIsSplashActive] = useState(true);
+      const [hasVisited, setHasVisited] = useState(localStorage.getItem('hasVisited') === 'true');
       
       const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '');
-      const [isGuestSession, setIsGuestSession] = useState(localStorage.getItem('isGuestSession') === 'true');
-      const [selectedSummit, setSelectedSummit] = useState(localStorage.getItem('selectedSummit') || '');
-
-      useEffect(() => {
-        const head = document.head;
-        const iconUrl = "https://i.postimg.cc/YCDqmpWZ/generated-image-4.jpg";
-        const manifest = {
-          name: "CX Executive Summit", short_name: "CX Summit", start_url: ".", display: "standalone",
-          background_color: "#FAFAFA", theme_color: "#FF4F1F",
-          icons: [{ src: iconUrl, sizes: "192x192", type: "image/png" }, { src: iconUrl, sizes: "512x512", type: "image/png" }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-        const manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest'; manifestLink.href = manifestUrl;
-        head.appendChild(manifestLink);
-      }, []);
-
-      useEffect(() => { localStorage.setItem('userEmail', userEmail); }, [userEmail]);
-      useEffect(() => { localStorage.setItem('isGuestSession', isGuestSession); }, [isGuestSession]);
       useEffect(() => { localStorage.setItem('selectedSummit', selectedSummit); }, [selectedSummit]);
 
       useEffect(() => {
-        const timer = setTimeout(() => setIsSplashActive(false), 5000);
+        const timer = setTimeout(() => {
+          setIsSplashActive(false);
+          if (!hasVisited) {
+            localStorage.setItem('hasVisited', 'true');
+            setHasVisited(true);
+          }
+        }, 5000);
         return () => clearTimeout(timer);
-      }, []);
+      }, [hasVisited]);
 
-      if (isSplashActive) return <SplashScreenView />;
+      const handleSkipSplash = () => {
+        setIsSplashActive(false);
+        if (!hasVisited) {
+          localStorage.setItem('hasVisited', 'true');
+          setHasVisited(true);
+        }
+      };
+
+      if (isSplashActive) return <SplashScreenView showSkip={hasVisited} onSkip={handleSkipSplash} />;
       if (!selectedSummit) return <EventSelectionView onSelect={setSelectedSummit} />;
       if (!userEmail && !isGuestSession) {
         return (
@@ -147,9 +142,17 @@
     }
 
     // MARK: - Splash Screen View
-    function SplashScreenView() {
+    function SplashScreenView({ showSkip, onSkip }) {
       return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col justify-end items-center pb-12 animate-in">
+          {showSkip && (
+            <button 
+              onClick={onSkip} 
+              className="absolute top-10 right-6 z-20 bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full text-sm font-bold border border-white/30"
+            >
+              Saltar ⏭
+            </button>
+          )}
           <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover opacity-80" src="https://yourimageshare.com/ib/cfhvnuWFnw.mov" />
           <div className="relative z-10 flex flex-col items-center">
             <h1 className="text-white text-xl font-bold drop-shadow-xl tracking-wide">CX Executive Summit 2026</h1>
@@ -234,12 +237,12 @@
       const [os, setOs] = useState('unknown');
 
       useEffect(() => {
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-        setIsStandalone(isPWA);
-        
-        // Detectar sistema operativo para dar instrucciones correctas
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        if (/iphone|ipad|ipod/.test(userAgent)) setOs('ios');
+        const timer = setTimeout(() => setIsSplashActive(false), 5000);
+        return () => clearTimeout(timer);
+      }, []);
+
+      if (isSplashActive) return <SplashScreenView onSkip={() => setIsSplashActive(false)} visitCount={visitCount} />;
+      if (!selectedSummit) return <EventSelectionView onSelect={setSelectedSummit} />;
         else if (/android/.test(userAgent)) setOs('android');
       }, []);
 
@@ -276,30 +279,30 @@
       );
     }
 
-    function NavButton({ icon, label, isActive, onClick }) {
+    // MARK: - Splash Screen View
+    function SplashScreenView({ onSkip, visitCount }) {
       return (
-        <button onClick={onClick} className={`flex flex-col items-center justify-center w-full pb-2 transition-colors ${isActive ? 'text-[#FF4F1F]' : 'text-gray-400'}`}>
-          <div className={`mb-1 transition-transform ${isActive ? 'scale-110' : 'scale-100'}`}>
-            {React.cloneElement(icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
+        <div className="fixed inset-0 bg-black z-50 flex flex-col justify-end items-center pb-12 animate-in">
+          <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover opacity-80" src="https://yourimageshare.com/ib/cfhvnuWFnw.mov" />
+          
+          {/* Botón Saltar: Solo visible a partir de la segunda visita */}
+          {visitCount > 1 && (
+            <button 
+              onClick={onSkip}
+              className="absolute top-10 right-6 z-20 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs font-bold border border-white/30 transition-colors flex items-center gap-1"
+            >
+              Saltar <ChevronRight size={14} />
+            </button>
+          )}
+
+          <div className="relative z-10 flex flex-col items-center">
+            <h1 className="text-white text-xl font-bold drop-shadow-xl tracking-wide">CX Executive Summit 2026</h1>
           </div>
-          <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
-        </button>
+        </div>
       );
     }
 
-    // MARK: - Home View
-    function HomeView({ userEmail, isGuestSession, selectedSummit, onLogout }) {
-      const info = Object.values(SummitLocation).find(s => s.id === selectedSummit);
-      const isRD = info?.countryName === "República Dominicana";
-
-      const handleOpenMap = () => {
-        if(!info) return;
-        if(/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-          window.open(`http://maps.apple.com/?daddr=${info.lat},${info.lng}`, '_blank');
-        } else {
-          window.open(`https://www.google.com/maps/search/?api=1&query=${info.lat},${info.lng}`, '_blank');
-        }
-      };
+    // MARK: - Event Selection View
 
       return (
         <div className="p-4 pb-8 animate-in">
