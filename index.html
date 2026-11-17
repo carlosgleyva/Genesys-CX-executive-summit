@@ -187,12 +187,10 @@
           // La URL exacta de tu Google Apps Script que usamos en la versión de Xcode
           const scriptURL = "https://script.google.com/macros/s/AKfycbyxHFSM_m4phKJzQ13Wz01uuXimBBZeYS9tNsUJvWdk9Xtn0BiOsnXuim19XnQdU7Lq/exec";
           
+          // Enviamos directo como string. El navegador asignará text/plain automáticamente sin alertar a Safari.
           await fetch(scriptURL, {
             method: 'POST',
-            mode: 'no-cors', // CRÍTICO: Esto evita que Safari/Chrome bloqueen el envío a Google
-            headers: {
-              'Content-Type': 'text/plain;charset=utf-8',
-            },
+            mode: 'no-cors', 
             body: JSON.stringify({
               email: emailInput,
               summit: selectedSummit,
