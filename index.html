@@ -351,10 +351,9 @@
 
       useEffect(() => {
         if (!info) return;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(info.sheetCSVUrl)}`;
         
-        fetch(proxyUrl).then(res => res.json()).then(data => {
-            const csv = data.contents;
+        // Función procesadora del CSV
+        const parseAndSetHTML = (csv) => {
             if (!csv) throw new Error("No data");
             const rows = []; let row = []; let curr = ''; let inQuotes = false;
             for (let i = 0; i < csv.length; i++) {
@@ -387,7 +386,39 @@
             });
             setAgendaHtml(html || '<div style="text-align:center; color:gray; margin-top:40px;">Agenda no disponible aún.</div>');
             setLoading(false);
-          }).catch(() => { setError(true); setLoading(false); });
+        };
+
+        // Triple Fallback Fetcher para máxima estabilidad
+        const fetchAgenda = async () => {
+          setLoading(true);
+          setError(false);
+          try {
+            // Intento 1: Fetch directo (Google Sheets oficial)
+            let res = await fetch(info.sheetCSVUrl);
+            if (!res.ok) throw new Error('Direct fail');
+            parseAndSetHTML(await res.text());
+          } catch (e1) {
+            try {
+              // Intento 2: Proxy Corsproxy
+              let res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(info.sheetCSVUrl)}`);
+              if (!res2.ok) throw new Error('Proxy 1 fail');
+              parseAndSetHTML(await res2.text());
+            } catch (e2) {
+              try {
+                // Intento 3: Proxy Codetabs
+                let res3 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${info.sheetCSVUrl}`);
+                if (!res3.ok) throw new Error('Proxy 2 fail');
+                parseAndSetHTML(await res3.text());
+              } catch (e3) {
+                console.error("Todos los intentos de conexión fallaron:", e3);
+                setError(true);
+                setLoading(false);
+              }
+            }
+          }
+        };
+
+        fetchAgenda();
       }, [info]);
 
       return (
@@ -395,7 +426,7 @@
           <div className="p-4 flex-1">
             {loading && <div className="h-full flex flex-col items-center justify-center gap-4"><div className="w-8 h-8 border-4 border-gray-200 border-t-[#FF4F1F] rounded-full animate-spin" /><p className="text-xs text-gray-500">Sincronizando agenda...</p></div>}
             {error && <div className="h-full flex flex-col items-center justify-center gap-2"><WifiOff size={40} className="text-gray-400 mb-2" /><h3 className="font-bold text-lg">Error de conexión</h3><button onClick={() => { setLoading(true); setError(false); }} className="bg-[#FF4F1F] text-white px-6 py-2 rounded-lg font-bold">Reintentar</button></div>}
-            {agendaHtml && <div dangerouslySetInnerHTML={{ __html: agendaHtml }} />}
+            {agendaHtml && !loading && !error && <div dangerouslySetInnerHTML={{ __html: agendaHtml }} />}
           </div>
         </div>
       );
