@@ -178,11 +178,33 @@
       const summitInfo = Object.values(SummitLocation).find(s => s.id === selectedSummit);
       const isEmailValid = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,64}$/i.test(emailInput);
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
         if (!isEmailValid) return;
         setIsSubmitting(true);
-        setTimeout(() => { setIsSubmitting(false); onRegister(emailInput); }, 1500);
+        
+        try {
+          // La URL exacta de tu Google Apps Script que usamos en la versión de Xcode
+          const scriptURL = "https://script.google.com/macros/s/AKfycbyxHFSM_m4phKJzQ13Wz01uuXimBBZeYS9tNsUJvWdk9Xtn0BiOsnXuim19XnQdU7Lq/exec";
+          
+          await fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors', // CRÍTICO: Esto evita que Safari/Chrome bloqueen el envío a Google
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: emailInput,
+              summit: selectedSummit,
+              timestamp: new Date().toISOString()
+            })
+          });
+        } catch (error) {
+          console.error("Error guardando el registro:", error);
+        } finally {
+          setIsSubmitting(false);
+          onRegister(emailInput);
+        }
       };
 
       return (
