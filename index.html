@@ -429,12 +429,15 @@ function AgendaView({ selectedSummit }) {
   useEffect(() => {
     if (isRD || !info) return;
     
-    // Usamos un Proxy CORS gratuito para evitar bloqueos del navegador hacia Google Sheets
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(info.sheetCSVUrl)}`;
+    // Usamos /get en lugar de /raw para mayor confiabilidad extrayendo el JSON del proxy
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(info.sheetCSVUrl)}`;
     
     fetch(proxyUrl)
-      .then(res => res.text())
-      .then(csv => {
+      .then(res => res.json())
+      .then(data => {
+        const csv = data.contents;
+        if (!csv) throw new Error("No data received from proxy");
+
         // Micro-procesador CSV robusto (maneja comillas y saltos de línea internos)
         const rows = [];
         let row = [];
@@ -653,7 +656,14 @@ function ChatView({ userEmail, isGuestSession }) {
   // Inyectar script de Genesys directamente en el DOM en lugar de usar iFrame
   useEffect(() => {
     const setupGenesys = () => {
-      if(document.getElementById('genesys-widget-script')) return; // Evitar duplicados
+      // Si el script ya existe, solo forzamos que se abra (evita re-cargas lentas)
+      if(document.getElementById('genesys-widget-script')) {
+        if (window.Genesys) {
+          window.Genesys("command", "MessagingService.setExternalId", { externalId: userEmail });
+          window.Genesys("command", "Messenger.open");
+        }
+        return; 
+      }
       
       window._genesysJs = 'Genesys';
       window.Genesys = window.Genesys || function () {
@@ -685,10 +695,9 @@ function ChatView({ userEmail, isGuestSession }) {
 
     return () => {
       clearInterval(checkInterval);
-      // Opcional: Cerrar el widget cuando el usuario salga de esta pestaña
-      if (window.Genesys) {
-        window.Genesys("command", "Messenger.close");
-      }
+      // No cerramos el widget al desmontar. 
+      // Al cambiar de tab, el widget nativo de Genesys se minimiza solo, 
+      // pero si lo forzamos a cerrar se pierde el historial de la sesión activa.
     };
   }, [userEmail]);
 
